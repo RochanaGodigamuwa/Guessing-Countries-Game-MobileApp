@@ -1,57 +1,282 @@
+//Rochana Godigamuwa 20221116
+//Start Date 28.03.2024
+//End Date 05.03.2024
+
 package com.example.cw1
 
+import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.cw1.ui.theme.CW1Theme
-import kotlin.random.Random
+import org.json.JSONObject
+
 
 class GuessTheCountry : ComponentActivity() {
+
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             CW1Theme {
+                //---------------------------------------------------------------
 
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    RandomCountryImage()
+                // Parse JSON and get the list of countries
+                val countries = parseCountriesJson(LocalContext.current)
 
+                // Get a random country from the list
+//                var randomCountry = getRandomCountry(countries)
+                var randCountry by rememberSaveable {
+                    mutableStateOf(getRandCountry(countries))
                 }
+
+                var (randCountryNo, randCountryName) = randCountry
+
+
+//
+
+                var guessedAns by rememberSaveable {
+                    mutableStateOf(false)
+                }
+
+                var buttonState by rememberSaveable {
+                    mutableStateOf(false)
+                }
+
+                //var isSelected by remember { mutableStateOf(false) }
+                var dialogBox by remember { mutableStateOf(false) }
+
+                if (dialogBox) {
+                    MinimalDialog(
+                        answerGiven = if (guessedAns) "CORRECT!" else "WRONG!",
+                        answer = randCountryName,
+                        answerColor = if (guessedAns) Color.Green else Color.Red,
+                        onDismissRequest = { dialogBox = false })
+                }
+
+                val countryNamePicked = remember { mutableStateOf<String?>(null) }
+
+
+
+                Scaffold(
+                    topBar = {
+                        TopAppBar(
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                titleContentColor = MaterialTheme.colorScheme.primary,
+                            ),
+                            title = {
+                                Text("Guess The Country")
+                            }
+                        )
+                    },
+                ) { innerPadding ->
+                    Column(
+                        modifier = Modifier
+                            .padding(innerPadding)
+                            .fillMaxHeight()
+                    ) {
+
+
+                        Log.d("test", randCountryName.toString())
+                        //------------------------------------------
+                        // Text(randomCountryCode.toString())
+
+
+                        val context = LocalContext.current
+
+                        val randFlagDrawable = context.resources.getIdentifier(
+                            randCountryNo?.lowercase(),
+                            "drawable",
+                            context.packageName
+                        )
+
+                        //Text(randomFlagDrawable.toString())
+
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(15.dp)
+                        )
+
+                        {
+                            Image(
+                                painter = painterResource(id = randFlagDrawable),
+                                contentDescription = null,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .aspectRatio(16f / 9f)
+                            )
+                        }
+
+                        LazyColumn(
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .weight(1f),
+                        ) {
+                            items(countries) { (code, name) ->
+
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(2.dp)
+                                        //.background(if (isSelected) Color.Blue else Color.White)
+                                        .clickable {
+                                            countryNamePicked.value = name
+                                        },
+                                    border = if (countryNamePicked.value == name) BorderStroke(
+                                        2.dp,
+                                        Color.Red
+                                    ) else null,
+                                ) {
+                                    Text(
+                                        text = (name),
+                                        modifier = Modifier
+                                            .padding(20.dp),
+                                        textAlign = TextAlign.Center,
+                                    )
+                                }
+                            }
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(3.dp)
+                        )
+                        {
+                            Button(onClick = {
+                                // Handle correct selection
+                                if (countryNamePicked.value == randCountryName) {
+                                    guessedAns = true
+                                }
+
+                                dialogBox = true
+                                buttonState = !buttonState
+
+                                //to reset values
+                                if (!buttonState) {
+                                    randCountry = getRandCountry(countries)
+                                    dialogBox = false
+                                    guessedAns = false
+                                }
+
+
+                            }) {
+                                Text(if (buttonState) "Next" else "Submit")
+                            }
+
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+}
+
+
+// Sample Data Class to hold country information
+data class Country(val code: String, val name: String)
+
+// Function to parse JSON and return a list of countries
+fun parseCountriesJson(context: Context): MutableList<Pair<String, String>> {
+    val countriesList = mutableListOf<Pair<String, String>>()
+    val jsonString = context.assets.open("countries.json").bufferedReader().use { it.readText() }
+    val jsonObject = JSONObject(jsonString)
+    val keys = jsonObject.keys()
+    while (keys.hasNext()) {
+        val key = keys.next()
+        val value = jsonObject.getString(key)
+        countriesList.add(Pair(key, value))
+    }
+    return countriesList
+}
+
+fun getRandCountry(countries: MutableList<Pair<String, String>>): Pair<String, String> {
+     if (countries.isNotEmpty()) {
+             return countries.random()
+     }// or handle the case where the list is empty
+    return TODO("List of countries empty")
+}
+
+
+@Composable
+fun MinimalDialog(answerGiven: String, answer: String, answerColor: Color, onDismissRequest: () -> Unit) {
+    Dialog(onDismissRequest = { onDismissRequest() }) {
+        Card(
+            modifier = Modifier
+                //.height(160.dp)
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+        )
+        {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = answerGiven,
+                    color = answerColor,
+                    fontSize = 50.sp,
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = answer,
+                    color = Color.Blue,
+                    fontSize = 25.sp,
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
             }
         }
     }
 }
 
-@Composable
-fun RandomCountryImage(){
-    val CountryImages = arrayOf(
-        R.drawable.ad, R.drawable.ae, R.drawable.af, R.drawable.ag, R.drawable.ai, R.drawable.al, R.drawable.am, R.drawable.ao, R.drawable.aq, R.drawable.ar, /*R.drawable.as,*/ R.drawable.at, R.drawable.au, R.drawable.aw, R.drawable.ax, R.drawable.az, R.drawable.ba, R.drawable.bb, R.drawable.bd, R.drawable.be, R.drawable.bf, R.drawable.bg, R.drawable.bh, R.drawable.bi, R.drawable.bj, R.drawable.bl, R.drawable.bm, R.drawable.bn, R.drawable.bo, R.drawable.bq, R.drawable.br, R.drawable.bs, R.drawable.bt, R.drawable.bv, R.drawable.bw, R.drawable.by, R.drawable.bz, R.drawable.ca, R.drawable.cc, R.drawable.cd, R.drawable.cf, R.drawable.cg, R.drawable.ch, R.drawable.ci, R.drawable.ck, R.drawable.cl, R.drawable.cm, R.drawable.cn, R.drawable.co, R.drawable.cr, R.drawable.cu, R.drawable.cv, R.drawable.cw, R.drawable.cx, R.drawable.cy, R.drawable.cz, R.drawable.de, R.drawable.dj, R.drawable.dk, R.drawable.dm, R.drawable.dr, R.drawable.dz, R.drawable.ec, R.drawable.ee, R.drawable.eg, R.drawable.eh, R.drawable.er, R.drawable.es, R.drawable.et, R.drawable.eu, R.drawable.fi, R.drawable.fj, R.drawable.fk, R.drawable.fm, R.drawable.fo, R.drawable.fr, R.drawable.ga, R.drawable.gbeng, R.drawable.gbnir, R.drawable.gbsct, R.drawable.gbwls, R.drawable.gb, R.drawable.gd, R.drawable.ge, R.drawable.gf,R.drawable.gg, R.drawable.gh, R.drawable.gi, R.drawable.gl, R.drawable.gm, R.drawable.gn, R.drawable.gp, R.drawable.gq, R.drawable.gr, R.drawable.gs,
-        R.drawable.gt, R.drawable.gu, R.drawable.gw,R.drawable.gy, R.drawable.hk, R.drawable.hm, R.drawable.hn, R.drawable.hr, R.drawable.ht, R.drawable.hu, R.drawable.id, R.drawable.ie, R.drawable.il, R.drawable.im,/*R.drawable.in,*//* R.drawable.io,*/R.drawable.iq, R.drawable.ir,/*R.drawable.is,*/R.drawable.it, R.drawable.je, R.drawable.jm, R.drawable.jo, R.drawable.jp, R.drawable.ke, R.drawable.kg, R.drawable.kh, R.drawable.ki, R.drawable.km, R.drawable.kn, R.drawable.kp, R.drawable.kr, R.drawable.kw, R.drawable.ky, R.drawable.kz, R.drawable.la, R.drawable.lb, R.drawable.lc, R.drawable.li, R.drawable.lk, R.drawable.lr, R.drawable.ls, R.drawable.lt, R.drawable.lu, R.drawable.lv, R.drawable.ly, R.drawable.ma, R.drawable.mc, R.drawable.md, R.drawable.me, R.drawable.mf, R.drawable.mg, R.drawable.mh, R.drawable.mk, R.drawable.ml, R.drawable.mm, R.drawable.mn, R.drawable.mo, R.drawable.mp, R.drawable.mq, R.drawable.mr, R.drawable.ms, R.drawable.mt, R.drawable.mu, R.drawable.mv, R.drawable.mw, R.drawable.mx, R.drawable.my, R.drawable.mz, R.drawable.na, R.drawable.nc, R.drawable.ne, R.drawable.nf, R.drawable.ng, R.drawable.ni, R.drawable.nl, R.drawable.no, R.drawable.np, R.drawable.nr, R.drawable.nu, R.drawable.nz, R.drawable.om, R.drawable.pa, R.drawable.pe, R.drawable.pf, R.drawable.pg, R.drawable.ph, R.drawable.pk, R.drawable.pl, R.drawable.pm, R.drawable.pn, R.drawable.pr, R.drawable.ps, R.drawable.pt, R.drawable.pw, R.drawable.py, R.drawable.qa, R.drawable.re, R.drawable.ro, R.drawable.rs, R.drawable.ru, R.drawable.rw,
-        R.drawable.sa, R.drawable.sb, R.drawable.sc, R.drawable.sd, R.drawable.se, R.drawable.sg, R.drawable.sh, R.drawable.si, R.drawable.sj, R.drawable.sk, R.drawable.sl, R.drawable.sm, R.drawable.sn, R.drawable.so, R.drawable.sr, R.drawable.ss, R.drawable.st, R.drawable.sv,
-        R.drawable.sx, R.drawable.sy, R.drawable.sz, R.drawable.tc, R.drawable.td, R.drawable.tf, R.drawable.tg, R.drawable.th, R.drawable.tj, R.drawable.tk, R.drawable.tl, R.drawable.tm, R.drawable.tn, R.drawable.to, R.drawable.tr, R.drawable.tt, R.drawable.tv, R.drawable.tw, R.drawable.tz, R.drawable.ua, R.drawable.ug, R.drawable.um, R.drawable.us, R.drawable.uy, R.drawable.uz, R.drawable.va, R.drawable.vc, R.drawable.ve, R.drawable.vg, R.drawable.vi, R.drawable.vn,
-        R.drawable.vu, R.drawable.wf, R.drawable.ws, R.drawable.xk, R.drawable.ye, R.drawable.yt, R.drawable.za, R.drawable.zm, R.drawable.zw
-    )
-    val randomCountryNo = Random.nextInt(0, CountryImages.size)
 
-    val randomImage = CountryImages[randomCountryNo]
-
-
-    Image(
-        painter = painterResource(id = randomImage),
-        contentDescription = null,
-        modifier = Modifier.fillMaxWidth()
-
-    )
-}
