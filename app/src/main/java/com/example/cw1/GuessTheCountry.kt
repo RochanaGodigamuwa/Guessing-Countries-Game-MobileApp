@@ -120,7 +120,7 @@ class GuessTheCountry : ComponentActivity() {
 
                         Log.d("test", randCountryName.toString())
                         //------------------------------------------
-                        // Text(randomCountryCode.toString())
+                        // Text(randCountryName.toString())
 
 
                         val context = LocalContext.current
